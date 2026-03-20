@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI HUB ULTRA 🚀</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  background: linear-gradient(135deg,#0f0f1f,#1a1a40);
+  color: white;
+}
+
+header {
+  text-align: center;
+  padding: 15px;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.switch {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.switch button {
+  padding: 10px 20px;
+  border-radius: 20px;
+  border: none;
+  background: #00ffc3;
+  font-weight: bold;
+}
+
+.container {
+  margin: 15px;
+  padding: 15px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.07);
+  animation: fade 0.3s ease;
+}
+
+@keyframes fade {
+  from {opacity:0; transform:translateY(10px);}
+  to {opacity:1; transform:translateY(0);}
+}
+
+input, textarea {
+  width: 90%;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  margin: 10px 0;
+}
+
+button.main {
+  width: 90%;
+  padding: 12px;
+  border-radius: 15px;
+  background: #00ffc3;
+  border: none;
+  font-weight: bold;
+}
+
+img {
+  width: 70px;
+  border-radius: 10px;
+  margin: 5px;
+}
+
+#preview {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+</style>
+</head>
+
+<body>
+
+<header>🚀 AI HUB ULTRA</header>
+
+<div class="switch">
+  <button onclick="switchMode('chat')">💬 Chat</button>
+  <button onclick="switchMode('video')">🎬 Video</button>
+</div>
+
+<!-- CHAT -->
+<div id="chat" class="container">
+  <h3>💬 Chat AI</h3>
+  <input type="password" id="groqKey" placeholder="Chiave Groq">
+
+  <textarea id="chatInput"></textarea>
+
+  <button class="main" onclick="voice()">🎤 Parla</button>
+  <button class="main" onclick="sendChat()">Invia</button>
+
+  <p id="chatOutput"></p>
+</div>
+
+<!-- VIDEO -->
+<div id="video" class="container" style="display:none;">
+  <h3>🎬 Video Generator</h3>
+  <input type="password" id="geminiKey" placeholder="Chiave Gemini">
+
+  <input type="file" id="images" multiple accept="image/*">
+  <div id="preview"></div>
+
+  <textarea id="videoPrompt"></textarea>
+
+  <button class="main" onclick="generateVideo()">Genera Video</button>
+
+  <p id="videoOutput"></p>
+</div>
+
+<script>
+// SALVA CHIAVI
+window.onload = () => {
+  groqKey.value = localStorage.getItem("groq") || "";
+  geminiKey.value = localStorage.getItem("gemini") || "";
+}
+
+groqKey.oninput = () => localStorage.setItem("groq", groqKey.value);
+geminiKey.oninput = () => localStorage.setItem("gemini", geminiKey.value);
+
+// SWITCH
+function switchMode(mode) {
+  chat.style.display = mode==="chat" ? "block":"none";
+  video.style.display = mode==="video" ? "block":"none";
+}
+
+// MICROFONO
+function voice() {
+  const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+  rec.lang = "it-IT";
+
+  rec.onresult = e => {
+    chatInput.value = e.results[0][0].transcript;
+  };
+
+  rec.start();
+}
+
+// CHAT GROQ
+async function sendChat() {
+  chatOutput.innerText = "⏳...";
+  
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + groqKey.value,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama3-70b-8192",
+        messages: [{role:"user",content:chatInput.value}]
+      })
+    });
+
+    const data = await res.json();
+    chatOutput.innerText = data.choices[0].message.content;
+
+  } catch {
+    chatOutput.innerText = "❌ errore";
+  }
+}
+
+// IMMAGINI
+let imgs = [];
+images.onchange = e => {
+  preview.innerHTML="";
+  imgs=[...e.target.files];
+
+  imgs.forEach(f=>{
+    let img=document.createElement("img");
+    img.src=URL.createObjectURL(f);
+    preview.appendChild(img);
+  });
+};
+
+// VIDEO (BASE + pronto API)
+async function generateVideo() {
+  videoOutput.innerText="🎬 Creazione video...\n\n"+videoPrompt.value;
+
+  // QUI puoi collegare Gemini video API
+  // esempio:
+  // fetch("https://generativelanguage.googleapis.com/v1/models/...")
+
+}
+</script>
+
+</body>
+</html>
