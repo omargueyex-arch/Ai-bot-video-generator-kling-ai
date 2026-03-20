@@ -1,0 +1,151 @@
+<!DOCTYPE html><html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chat Groq + Voce</title>
+  <style>
+    body {margin:0;font-family:Arial, sans-serif;background:linear-gradient(135deg,#1e1e2f,#3a3a6a);color:white;display:flex;justify-content:center;align-items:center;height:100vh}
+    .container {width:95%;max-width:520px;background:#2a2a40;border-radius:20px;box-shadow:0 0 20px rgba(0,0,0,.5);padding:15px;display:flex;flex-direction:column;height:92vh}
+    h2 {text-align:center;margin:6px 0}
+    input {padding:10px;border-radius:10px;border:none;margin-bottom:8px}
+    button {padding:10px;border-radius:10px;border:none;background:#6c5ce7;color:white;cursor:pointer;margin:4px 0}
+    .chat {flex:1;overflow-y:auto;margin:10px 0}
+    .msg {padding:10px;border-radius:10px;margin:6px 0;line-height:1.4}
+    .user {background:#0984e3}
+    .bot {background:#00b894}
+    .sys {background:#636e72}
+    .row {display:flex;gap:6px}
+    .row input {flex:1}
+    .controls {display:flex;gap:6px;flex-wrap:wrap}
+    .active {background:#d63031}
+  </style>
+</head>
+<body><div class="container">
+  <h2>🤖 AI Groq Chat + Chiamata 🎧</h2>  <input type="password" id="apiKey" placeholder="Inserisci Groq API Key">
+  <div class="controls">
+    <button onclick="saveKey()">Salva Chiave</button>
+    <button id="callBtn" onclick="toggleCall()">📞 Avvia chiamata</button>
+  </div>  <div class="chat" id="chat"></div>  <div class="row">
+    <input type="text" id="input" placeholder="Scrivi...">
+    <button onclick="sendMsg()">➤</button>
+    <button onclick="startMicOnce()">🎤</button>
+  </div>
+</div><script>
+let apiKey = localStorage.getItem("groq_key") || "";
+if(apiKey) document.getElementById("apiKey").value = apiKey;
+
+function saveKey(){
+  apiKey = document.getElementById("apiKey").value;
+  localStorage.setItem("groq_key", apiKey);
+  alert("Chiave salvata!");
+}
+
+function addMsg(text, cls="sys"){
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.innerText = text;
+  const chat = document.getElementById("chat");
+  chat.appendChild(div);
+  div.scrollIntoView({behavior:"smooth"});
+}
+
+async function askAI(text){
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
+    body: JSON.stringify({model:"llama-3.1-8b-instant",messages:[{role:"user",content:text}]})
+  });
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || "Errore";
+}
+
+async function sendMsg(){
+  const input = document.getElementById("input");
+  const text = input.value.trim();
+  if(!text) return;
+  addMsg(text,"user");
+  input.value="";
+  const reply = await askAI(text);
+  addMsg(reply,"bot");
+  speak(reply);
+}
+
+// ===== TTS (voce AI) =====
+function speak(text){
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = "it-IT";
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utter);
+}
+
+// ===== MICROFONO singolo =====
+function getRecog(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ alert("Microfono non supportato"); return null; }
+  const r = new SR();
+  r.lang = "it-IT";
+  r.interimResults = false;
+  r.continuous = false;
+  return r;
+}
+
+function startMicOnce(){
+  const r = getRecog(); if(!r) return;
+  r.onresult = e => {
+    const text = e.results[0][0].transcript;
+    document.getElementById("input").value = text;
+  };
+  r.start();
+}
+
+// ===== CHIAMATA VOCALE (continua) =====
+let inCall = false;
+let recog = null;
+
+function toggleCall(){
+  const btn = document.getElementById("callBtn");
+  if(!inCall){
+    startCall();
+    btn.classList.add("active");
+    btn.textContent = "⛔ Termina chiamata";
+  } else {
+    stopCall();
+    btn.classList.remove("active");
+    btn.textContent = "📞 Avvia chiamata";
+  }
+}
+
+function startCall(){
+  recog = getRecog(); if(!recog) return;
+  inCall = true;
+  addMsg("Chiamata avviata. Parla...","sys");
+
+  recog.continuous = true;
+  recog.interimResults = false;
+
+  recog.onresult = async (e) => {
+    const text = e.results[e.results.length-1][0].transcript;
+    addMsg(text, "user");
+    const reply = await askAI(text);
+    addMsg(reply, "bot");
+    speak(reply);
+  };
+
+  recog.onend = () => {
+    // riavvia automaticamente se ancora in chiamata
+    if(inCall){
+      try { recog.start(); } catch(e){}
+    }
+  };
+
+  try { recog.start(); } catch(e){}
+}
+
+function stopCall(){
+  inCall = false;
+  if(recog){ try{ recog.stop(); }catch(e){} }
+  speechSynthesis.cancel();
+  addMsg("Chiamata terminata","sys");
+}
+</script></body>
+</html>
